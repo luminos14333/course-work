@@ -15,13 +15,16 @@ static char parg[9] = "";
 static int pproc = 0;
 static short psys = 0;
 
-module_param_string(parg, parg, sizeof(parg), S_IRUGO | S_IWUGO);
+/* string parameter up to 8 chars, readable/writable by owner */
+module_param_string(parg, parg, sizeof(parg), 0644);
 MODULE_PARM_DESC(parg, "string(8) parameter");
 
-module_param(pproc, int, S_IRUGO);
+/* int parameter, read-only in sysfs */
+module_param(pproc, int, 0444);
 MODULE_PARM_DESC(pproc, "int parameter visible in /proc/smodparam");
 
-module_param(psys, short, S_IRUGO | S_IWUGO);
+/* short parameter, readable/writable by owner in sysfs */
+module_param(psys, short, 0644);
 MODULE_PARM_DESC(psys, "short parameter available in sysfs");
 
 /* Proc interface */
@@ -35,15 +38,14 @@ static ssize_t proc_read(struct file *file, char __user *buf, size_t count, loff
     return simple_read_from_buffer(buf, count, ppos, tmp, len);
 }
 
-static const struct file_operations proc_ops = {
-    .owner = THIS_MODULE,
-    .read  = proc_read,
+/* Use struct proc_ops for modern kernels */
+static const struct proc_ops proc_file_ops = {
+    .proc_read = proc_read,
 };
 
 static int __init smod_init(void)
 {
-    /* Create /proc entry */
-    proc_entry = proc_create(PROC_NAME, 0444, NULL, &proc_ops);
+    proc_entry = proc_create(PROC_NAME, 0444, NULL, &proc_file_ops);
     if (!proc_entry) {
         pr_err("Failed to create /proc/%s\n", PROC_NAME);
         return -ENOMEM;
