@@ -8,6 +8,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yakymiv R.R.");
 MODULE_DESCRIPTION("Simple smod kernel module with proc and sysfs parameters");
+MODULE_VERSION("1.0");
 
 /* Module parameters */
 static char parg[9] = "";
@@ -15,15 +16,15 @@ static int pproc = 0;
 static short psys = 0;
 
 module_param_string(parg, parg, sizeof(parg), S_IRUGO | S_IWUGO);
-MODULE_PARM_DESC(parg, "string(8) параметр");
+MODULE_PARM_DESC(parg, "string(8) parameter");
 
 module_param(pproc, int, S_IRUGO);
-MODULE_PARM_DESC(pproc, "int параметр, відображається в /proc/smodparam");
+MODULE_PARM_DESC(pproc, "int parameter visible in /proc/smodparam");
 
 module_param(psys, short, S_IRUGO | S_IWUGO);
-MODULE_PARM_DESC(psys, "short параметр, автоматично доступний у sysfs");
+MODULE_PARM_DESC(psys, "short parameter available in sysfs");
 
-/* proc interface */
+/* Proc interface */
 #define PROC_NAME "smodparam"
 static struct proc_dir_entry *proc_entry;
 
@@ -41,7 +42,7 @@ static const struct file_operations proc_ops = {
 
 static int __init smod_init(void)
 {
-    /* create /proc entry */
+    /* Create /proc entry */
     proc_entry = proc_create(PROC_NAME, 0444, NULL, &proc_ops);
     if (!proc_entry) {
         pr_err("Failed to create /proc/%s\n", PROC_NAME);
