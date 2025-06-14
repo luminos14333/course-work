@@ -1,80 +1,62 @@
-#include <linux/module.h>
 #include <linux/init.h>
-#include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
-#include <linux/kobject.h>
-#include <linux/sysfs.h>
-#define PROCFS_NAME "smodparam"
-static int parg = 0;
-module_param(parg, int, 0660);
-MODULE_PARM_DESC(parg, "Integer parameter passed to module");
-static char pproc[9] = "default";
-static long int psys = 100;
-static struct proc_dir_entry *proc_file;
-static struct kobject *smod_kobj;
-ssize_t proc_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+#include <linux/kernel.h>
+#include <linux/moduleparam.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Yakymiv R.R.");
+MODULE_DESCRIPTION("Simple smod kernel module with proc and sysfs parameters");
+
+/* Module parameters */
+static char parg[9] = "";
+static int pproc = 0;
+static short psys = 0;
+
+module_param_string(parg, parg, sizeof(parg), S_IRUGO | S_IWUGO);
+MODULE_PARM_DESC(parg, "string(8) параметр");
+
+module_param(pproc, int, S_IRUGO);
+MODULE_PARM_DESC(pproc, "int параметр, відображається в /proc/smodparam");
+
+module_param(psys, short, S_IRUGO | S_IWUGO);
+MODULE_PARM_DESC(psys, "short параметр, автоматично доступний у sysfs");
+
+/* proc interface */
+#define PROC_NAME "smodparam"
+static struct proc_dir_entry *proc_entry;
+
+static ssize_t proc_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
-    char buffer[16];
-    int len = snprintf(buffer, sizeof(buffer), "%s\n", pproc);
-    return simple_read_from_buffer(buf, count, ppos, buffer, len);
+    char tmp[32];
+    int len = snprintf(tmp, sizeof(tmp), "%d\n", pproc);
+    return simple_read_from_buffer(buf, count, ppos, tmp, len);
 }
-ssize_t proc_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
-{
-    if (count >= sizeof(pproc))
-        return -EINVAL;
-    if (copy_from_user(pproc, buf, count))
-        return -EFAULT;
-    pproc[count] = '\0';
-    return count;
-}
-static struct proc_ops proc_file_ops = {
-    .proc_read = proc_read,
-    .proc_write = proc_write,
+
+static const struct file_operations proc_ops = {
+    .owner = THIS_MODULE,
+    .read  = proc_read,
 };
-static ssize_t psys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-    return sprintf(buf, "%ld\n", psys);
-}
-static ssize_t psys_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
-{
-    kstrtol(buf, 10, &psys);
-    return count;
-}
-static struct kobj_attribute psys_attr = __ATTR(psys, 0644, psys_show, psys_store);
+
 static int __init smod_init(void)
 {
-    pr_info("smod loaded with parg = %d\n", parg);
-    proc_file = proc_create(PROCFS_NAME, 0644, NULL, &proc_file_ops);
-    if (!proc_file)
-    {
-        30 pr_err("Failed to create /proc/%s\n", PROCFS_NAME);
+    /* create /proc entry */
+    proc_entry = proc_create(PROC_NAME, 0444, NULL, &proc_ops);
+    if (!proc_entry) {
+        pr_err("Failed to create /proc/%s\n", PROC_NAME);
         return -ENOMEM;
     }
-    smod_kobj = kobject_create_and_add("smod", kernel_kobj);
-    if (!smod_kobj)
-    {
-        pr_err("Failed to create kobject\n");
-        remove_proc_entry(PROCFS_NAME, NULL);
-        return -ENOMEM;
-    }
-    if (sysfs_create_file(smod_kobj, &psys_attr.attr))
-    {
-        pr_err("Failed to create sysfs entry\n");
-        kobject_put(smod_kobj);
-        remove_proc_entry(PROCFS_NAME, NULL);
-        return -ENOMEM;
-    }
+
+    pr_info("smod module loaded: parg=%s, pproc=%d, psys=%hd\n", parg, pproc, psys);
     return 0;
 }
+
 static void __exit smod_exit(void)
 {
-    kobject_put(smod_kobj);
-    remove_proc_entry(PROCFS_NAME, NULL);
-    pr_info("smod unloaded\n");
+    proc_remove(proc_entry);
+    pr_info("smod module unloaded\n");
 }
+
 module_init(smod_init);
 module_exit(smod_exit);
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("KISP");
-MODULE_DESCRIPTION("Test kernel module smod with parg (int), pproc (string(8)), psys (long int)");
