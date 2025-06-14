@@ -1,69 +1,45 @@
+/* smod_test.c
+ * Test program for smod.ko kernel module
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-int main()
-{
-    FILE *fp;
-    char buffer[64];
-    fp = fopen("/proc/smodparam", "r");
-    if (fp == NULL)
-    {
+
+int main(void) {
+    FILE *f;
+    int pproc_val;
+    short new_psys;
+
+    /* 1. Read 'pproc' from /proc */
+    f = fopen("/proc/smodparam", "r");
+    if (!f) {
         perror("Error opening /proc/smodparam");
-        return 1;
+        return EXIT_FAILURE;
     }
-    if (fgets(buffer, sizeof(buffer), fp) != NULL)
-    {
-        printf("Current pproc value: %s", buffer);
+    if (fscanf(f, "%d", &pproc_val) != 1) {
+        fprintf(stderr, "Failed to read pproc value\n");
+        fclose(f);
+        return EXIT_FAILURE;
     }
-    fclose(fp);
-    fp = fopen("/proc/smodparam", "w");
-    if (fp == NULL)
-    {
-        perror("Error writing to /proc/smodparam");
-        return 1;
+    fclose(f);
+    printf("Current pproc value: %d\n", pproc_val);
+
+    /* 2. Prompt user for new 'psys' value */
+    printf("Enter new psys value (short): ");
+    if (scanf("%hd", &new_psys) != 1) {
+        fprintf(stderr, "Invalid input format\n");
+        return EXIT_FAILURE;
     }
-    fprintf(fp, "testval\n");
-    fclose(fp);
-    fp = fopen("/proc/smodparam", "r");
-    if (fp == NULL)
-    {
-        perror("Error reopening /proc/smodparam");
-        return 1;
+
+    /* 3. Write new 'psys' to sysfs */
+    f = fopen("/sys/module/smod/parameters/psys", "w");
+    if (!f) {
+        perror("Error opening /sys/module/smod/parameters/psys");
+        return EXIT_FAILURE;
     }
-    if (fgets(buffer, sizeof(buffer), fp) != NULL)
-    {
-        printf("Updated pproc value: %s", buffer);
-    }
-    fclose(fp);
-    fp = fopen("/sys/kernel/smod/psys", "r");
-    if (fp == NULL)
-    {
-        perror("Error opening /sys/kernel/smod/psys");
-        return 1;
-    }
-    if (fgets(buffer, sizeof(buffer), fp) != NULL)
-    {
-        printf("Current psys value: %s", buffer);
-    }
-    fclose(fp);
-    fp = fopen("/sys/kernel/smod/psys", "w");
-    if (fp == NULL)
-    {
-        perror("Error writing to /sys/kernel/smod/psys");
-        return 1;
-    }
-    32 fprintf(fp, "777\n");
-    fclose(fp);
-    fp = fopen("/sys/kernel/smod/psys", "r");
-    if (fp == NULL)
-    {
-        perror("Error reopening /sys/kernel/smod/psys");
-        return 1;
-    }
-    if (fgets(buffer, sizeof(buffer), fp) != NULL)
-    {
-        printf("Updated psys value: %s", buffer);
-    }
-    fclose(fp);
-    return 0;
+    fprintf(f, "%hd\n", new_psys);
+    fclose(f);
+
+    printf("New psys value set: %hd\n", new_psys);
+    return EXIT_SUCCESS;
 }
